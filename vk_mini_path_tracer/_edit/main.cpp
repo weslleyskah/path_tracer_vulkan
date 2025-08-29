@@ -1,5 +1,3 @@
-// Copyright 2020-2024 NVIDIA Corporation
-// SPDX-License-Identifier: Apache-2.0
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
