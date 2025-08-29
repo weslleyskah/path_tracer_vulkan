@@ -52,6 +52,17 @@ C:\...\vk_mini_path_tracer/build/vk_mini_path_tracer_edit.sln
 C:\...\path_tracer_vulkan\bin_x64\Debug>vk_mini_path_tracer__edit.exe
 ```
 
+### 6. Rebuild
+```bash
+source: C:/.../path_tracer_vulkan/vk_mini_path_tracer 
+build: C:/.../path_tracer_vulkan/vk_mini_path_tracer/build
+configure - generate - open project
+Set vk_mini_path_tracer as startup project
+Compile main.cpp
+Run C:\...\path_tracer_vulkan\bin_x64\Debug>vk_mini_path_tracer__edit.exe
+See the output C:\...\path_tracer_vulkan\bin_x64\Debug\out.hdr on GIMP
+```
+
 ---
 
 # Notes

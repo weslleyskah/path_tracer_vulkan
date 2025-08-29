@@ -81,12 +81,25 @@ int main(int argc, const char** argv)
 
 
 
-  // Storage Descriptor Buffer
+  // Descriptor: Storage Descriptor Buffer
   // Here's the list of bindings for the descriptor set layout, from raytrace.comp.glsl:
   // 0 - a storage buffer (the buffer `buffer`)
   // That's it for now!
   nvvk::DescriptorSetContainer descriptorSetContainer(context);
   descriptorSetContainer.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+  // Create a layout from the list of bindings
+  descriptorSetContainer.initLayout();
+  // Create a descriptor pool from the list of bindings with space for 1 set, and allocate that set
+  descriptorSetContainer.initPool(1);
+  // Create a simple pipeline layout from the descriptor set layout:
+  descriptorSetContainer.initPipeLayout();
+  // Write a single descriptor in the descriptor set.
+  VkDescriptorBufferInfo descriptorBufferInfo{ .buffer = buffer.buffer,     // The VkBuffer object
+                                              .range = bufferSizeBytes };  // The length of memory to bind; offset is 0.
+  VkWriteDescriptorSet writeDescriptor = descriptorSetContainer.makeWrite(0 /*set index*/, 0 /*binding*/, &descriptorBufferInfo);
+  vkUpdateDescriptorSets(context,              // The context
+      1, &writeDescriptor,  // An array of VkWriteDescriptorSet objects
+      0, nullptr);          // An array of VkCopyDescriptorSet objects (unused)
 
 
 
@@ -98,30 +111,22 @@ int main(int argc, const char** argv)
       nvvk::createShaderModule(context, nvh::loadFile("shaders/raytrace.comp.glsl.spv", true, searchPaths));
 
   // Describes the entrypoint and the stage to use for this shader module in the pipeline
-  VkPipelineShaderStageCreateInfo shaderStageCreateInfo{.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                        .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
+  VkPipelineShaderStageCreateInfo shaderStageCreateInfo{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                                        .stage = VK_SHADER_STAGE_COMPUTE_BIT,
                                                         .module = rayTraceModule,
-                                                        .pName  = "main"};
-
-  // For the moment, create an empty pipeline layout. You can ignore this code
-  // for now; we'll replace it in the next chapter.
-  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,  //
-                                                      .setLayoutCount         = 0,                             //
-                                                      .pushConstantRangeCount = 0};
-  VkPipelineLayout           pipelineLayout;
-  NVVK_CHECK(vkCreatePipelineLayout(context, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
+                                                        .pName = "main" };
 
   // Create the compute pipeline
-  VkComputePipelineCreateInfo pipelineCreateInfo{.sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,  //
-                                                 .stage  = shaderStageCreateInfo,                           //
-                                                 .layout = pipelineLayout};
+  VkComputePipelineCreateInfo pipelineCreateInfo{ .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+                                                 .stage = shaderStageCreateInfo,
+                                                 .layout = descriptorSetContainer.getPipeLayout() };
   // Don't modify flags, basePipelineHandle, or basePipelineIndex
   VkPipeline computePipeline;
   NVVK_CHECK(vkCreateComputePipelines(context,                 // Device
-                                      VK_NULL_HANDLE,          // Pipeline cache (uses default)
-                                      1, &pipelineCreateInfo,  // Compute pipeline create info
-                                      nullptr,                 // Allocator (uses default)
-                                      &computePipeline));      // Output
+      VK_NULL_HANDLE,          // Pipeline cache (uses default)
+      1, &pipelineCreateInfo,  // Compute pipeline create info
+      nullptr,                 // Allocator (uses default)
+      &computePipeline));      // Output
 
 
 
@@ -149,8 +154,14 @@ int main(int argc, const char** argv)
   // Bind the compute shader pipeline
   vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
-  // Run the compute shader with one workgroup for now
-  vkCmdDispatch(cmdBuffer, 1, 1, 1);
+  // Bind the descriptor set
+  VkDescriptorSet descriptorSet = descriptorSetContainer.getSet(0);
+  vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorSetContainer.getPipeLayout(), 0, 1,
+      &descriptorSet, 0, nullptr);
+
+  // Run the compute shader with enough workgroups to cover the entire buffer:
+  vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
+      (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
 
 
 
@@ -202,7 +213,7 @@ int main(int argc, const char** argv)
   // Cleanup
   vkDestroyPipeline(context, computePipeline, nullptr);
   vkDestroyShaderModule(context, rayTraceModule, nullptr);
-  vkDestroyPipelineLayout(context, pipelineLayout, nullptr);
+  descriptorSetContainer.deinit();
   vkFreeCommandBuffers(context, cmdPool, 1, &cmdBuffer);
   vkDestroyCommandPool(context, cmdPool, nullptr);
   allocator.destroy(buffer);
