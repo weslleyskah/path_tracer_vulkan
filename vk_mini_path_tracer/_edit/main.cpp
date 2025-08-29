@@ -3,11 +3,12 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
-#include <nvh/fileoperations.hpp>  // For nvh::loadFile
+#include <nvh/fileoperations.hpp>         // For nvh::loadFile
 #include <nvvk/context_vk.hpp>
 #include <nvvk/error_vk.hpp>              // For NVVK_CHECK
 #include <nvvk/resourceallocator_vk.hpp>  // For NVVK memory allocators
 #include <nvvk/shaders_vk.hpp>            // For nvvk::createShaderModule
+#include <nvvk/descriptorsets_vk.hpp>     // For nvvk::DescriptorSetContainer
 
 static const uint64_t render_width     = 800;
 static const uint64_t render_height    = 600;
@@ -28,21 +29,6 @@ int main(int argc, const char** argv)
   VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR};
   deviceInfo.addDeviceExtension(VK_KHR_RAY_QUERY_EXTENSION_NAME, false, &rayQueryFeatures);
 
-  // Add the required device extensions for Debug Printf. If this is confusing,
-  // don't worry; we'll remove this in the next chapter.
-  deviceInfo.addDeviceExtension(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
-  VkValidationFeatureEnableEXT validationFeatureToEnable = VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT;
-  VkValidationFeaturesEXT      validationInfo{.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT,
-                                              .enabledValidationFeatureCount = 1,
-                                              .pEnabledValidationFeatures    = &validationFeatureToEnable};
-  deviceInfo.instanceCreateInfoExt = &validationInfo;
-#ifdef _WIN32
-  _putenv_s("DEBUG_PRINTF_TO_STDOUT", "1");
-#else   // If not _WIN32
-  static char putenvString[] = "DEBUG_PRINTF_TO_STDOUT=1";
-  putenv(putenvString);
-#endif  // _WIN32
-
   nvvk::Context context;     // Encapsulates device state in a single object
   context.init(deviceInfo);  // Initialize the context
 
@@ -51,22 +37,17 @@ int main(int argc, const char** argv)
 
 
 
-  /* Allocator, Buffer, Command pool
   
-    Because of the latency of the data transfer between the CPU and GPU, instead of potentially sending data between the CPU and GPU with every command,
-    Vulkan's design encourages applications to batch collections of operations in command buffers.
-
-    Allocate GPU memory using nvvk::ResourceAllocatorDedicated;
-    Create a VkBuffer representing an image;
-    Map data from the GPU to the CPU;
-    Create a command buffer and a command pool;
-    Record and submit a command buffer with a vkCmdFill command.
-   */
-
+  // Allocator
   // Create the allocator
   nvvk::ResourceAllocatorDedicated allocator;
   allocator.init(context, context.m_physicalDevice);
 
+
+
+
+
+  // Buffer
   // Create a buffer
   VkDeviceSize       bufferSizeBytes = render_width * render_height * 3 * sizeof(float);
   VkBufferCreateInfo bufferCreateInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -85,12 +66,33 @@ int main(int argc, const char** argv)
   std::vector<std::string> searchPaths = {exePath + PROJECT_RELDIRECTORY, exePath + PROJECT_RELDIRECTORY "..",
                                           exePath + PROJECT_RELDIRECTORY "../..", exePath + PROJECT_NAME};
 
+
+
+
+
+  // Command Pool
   // Create the command pool
   VkCommandPoolCreateInfo cmdPoolInfo{.sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,  //
                                       .queueFamilyIndex = context.m_queueGCT};
   VkCommandPool           cmdPool;
   NVVK_CHECK(vkCreateCommandPool(context, &cmdPoolInfo, nullptr, &cmdPool));
 
+
+
+
+
+  // Storage Descriptor Buffer
+  // Here's the list of bindings for the descriptor set layout, from raytrace.comp.glsl:
+  // 0 - a storage buffer (the buffer `buffer`)
+  // That's it for now!
+  nvvk::DescriptorSetContainer descriptorSetContainer(context);
+  descriptorSetContainer.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+
+
+
+
+
+  // Shader and Pipelines
   // Shader loading and pipeline creation
   VkShaderModule rayTraceModule =
       nvvk::createShaderModule(context, nvh::loadFile("shaders/raytrace.comp.glsl.spv", true, searchPaths));
@@ -121,6 +123,11 @@ int main(int argc, const char** argv)
                                       nullptr,                 // Allocator (uses default)
                                       &computePipeline));      // Output
 
+
+
+
+
+  // Command Buffer
   // Allocate a command buffer
   VkCommandBufferAllocateInfo cmdAllocInfo{.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
                                            .commandPool        = cmdPool,
@@ -134,12 +141,22 @@ int main(int argc, const char** argv)
                                      .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
   NVVK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
 
+
+
+
+
+  // Binding
   // Bind the compute shader pipeline
   vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
 
   // Run the compute shader with one workgroup for now
   vkCmdDispatch(cmdBuffer, 1, 1, 1);
 
+
+
+
+
+  // Memory Barrier
   // Add a command that says "Make it so that memory writes by the compute shader
   // are available to read from the CPU." (In other words, "Flush the GPU caches
   // so the CPU can read the data.") To do this, we use a memory barrier.
@@ -155,6 +172,11 @@ int main(int argc, const char** argv)
                        1, &memoryBarrier,                                     // An array of memory barriers
                        0, nullptr, 0, nullptr);                               // No other barriers
 
+
+
+
+
+  // Finishing operations
   // End recording
   NVVK_CHECK(vkEndCommandBuffer(cmdBuffer));
 
@@ -177,13 +199,13 @@ int main(int argc, const char** argv)
 
 
 
-  // Cleanup resources
+  // Cleanup
   vkDestroyPipeline(context, computePipeline, nullptr);
   vkDestroyShaderModule(context, rayTraceModule, nullptr);
-  vkDestroyPipelineLayout(context, pipelineLayout, nullptr);  // Will be removed in the next chapter
+  vkDestroyPipelineLayout(context, pipelineLayout, nullptr);
   vkFreeCommandBuffers(context, cmdPool, 1, &cmdBuffer);
   vkDestroyCommandPool(context, cmdPool, nullptr);
   allocator.destroy(buffer);
   allocator.deinit();
-  context.deinit();  // Don't forget to clean up at the end of the program!
+  context.deinit();
 }
