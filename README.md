@@ -73,6 +73,9 @@ Open out.hdr on GIMP
 
 # Notes
 
+> <span style="color: gray;">**Important:**</span>
+Try python-cuda.
+
 ## CMakeLists.txt
 ```bash
 # Copyright 2020-2024 NVIDIA Corporation

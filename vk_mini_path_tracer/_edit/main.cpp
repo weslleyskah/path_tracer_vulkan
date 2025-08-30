@@ -1,17 +1,66 @@
+#include <array>
+#include <cassert>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+/*
+The OBJ file format represents meshes using an array of vertices (which are 3D points, but can also have some other attributes, such as a color per vertex, that we won't use), 
+and an array of sets of three indices. Each set of three indices corresponds to three vertices, which represent a triangle.
+*/
 
 #include <nvh/fileoperations.hpp>         // For nvh::loadFile
 #include <nvvk/context_vk.hpp>
+#include <nvvk/descriptorsets_vk.hpp>     // For nvvk::DescriptorSetContainer
 #include <nvvk/error_vk.hpp>              // For NVVK_CHECK
+#include <nvvk/raytraceKHR_vk.hpp>        // For nvvk::RaytracingBuilderKHR
 #include <nvvk/resourceallocator_vk.hpp>  // For NVVK memory allocators
 #include <nvvk/shaders_vk.hpp>            // For nvvk::createShaderModule
-#include <nvvk/descriptorsets_vk.hpp>     // For nvvk::DescriptorSetContainer
+
+
+
+
 
 static const uint64_t render_width     = 800;
 static const uint64_t render_height    = 600;
 static const uint32_t workgroup_width  = 16;
 static const uint32_t workgroup_height = 8;
+
+
+
+
+
+// second command buffer to upload vertex and index data to the GPU
+VkCommandBuffer AllocateAndBeginOneTimeCommandBuffer(VkDevice device, VkCommandPool cmdPool)
+{
+    VkCommandBufferAllocateInfo cmdAllocInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                                             .commandPool = cmdPool,
+                                             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                                             .commandBufferCount = 1 };
+    VkCommandBuffer cmdBuffer;
+    NVVK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &cmdBuffer));
+    VkCommandBufferBeginInfo beginInfo{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                                       .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT };
+    NVVK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+    return cmdBuffer;
+}
+
+
+
+
+// function that ends recording a command buffer, then submits it to a queue, waits for it to finish, and then frees the command buffer
+void EndSubmitWaitAndFreeCommandBuffer(VkDevice device, VkQueue queue, VkCommandPool cmdPool, VkCommandBuffer& cmdBuffer)
+{
+    NVVK_CHECK(vkEndCommandBuffer(cmdBuffer));
+    VkSubmitInfo submitInfo{ .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, .commandBufferCount = 1, .pCommandBuffers = &cmdBuffer };
+    NVVK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
+    NVVK_CHECK(vkQueueWaitIdle(queue));
+    vkFreeCommandBuffers(device, cmdPool, 1, &cmdBuffer);
+}
+
+
+
+
 
 int main(int argc, const char** argv)
 {
@@ -60,9 +109,31 @@ int main(int argc, const char** argv)
                                                    | VK_MEMORY_PROPERTY_HOST_CACHED_BIT  //
                                                    | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
+  
+
+
+
+  // Load the mesh of the first shape from an OBJ file
   const std::string        exePath(argv[0], std::string(argv[0]).find_last_of("/\\") + 1);
-  std::vector<std::string> searchPaths = {exePath + PROJECT_RELDIRECTORY, exePath + PROJECT_RELDIRECTORY "..",
-                                          exePath + PROJECT_RELDIRECTORY "../..", exePath + PROJECT_NAME};
+  std::vector<std::string> searchPaths = { exePath + PROJECT_RELDIRECTORY, exePath + PROJECT_RELDIRECTORY "..",
+                                          exePath + PROJECT_RELDIRECTORY "../..", exePath + PROJECT_NAME };
+  tinyobj::ObjReader       reader;  // Used to read an OBJ file
+  reader.ParseFromFile(nvh::findFile("scenes/CornellBox-Original-Merged.obj", searchPaths));
+  assert(reader.Valid());  // Make sure tinyobj was able to parse this file
+
+  // Get the vertices and indices of the OBJ file
+  const std::vector<tinyobj::real_t>   objVertices = reader.GetAttrib().GetVertices();
+  const std::vector<tinyobj::shape_t>& objShapes = reader.GetShapes();  // All shapes in the file
+  assert(objShapes.size() == 1);                                          // Check that this file has only one shape (the mesh formed by triangles)
+  const tinyobj::shape_t& objShape = objShapes[0];                        // Get the first shape
+  // Get the indices of the vertices of the first mesh of `objShape` in `attrib.vertices`:
+  std::vector<uint32_t> objIndices;
+  objIndices.reserve(objShape.mesh.indices.size());
+  for (const tinyobj::index_t& index : objShape.mesh.indices)
+  {
+      objIndices.push_back(index.vertex_index);
+  }
+  // for (auto x : objIndices) printf("%d ", x);
 
 
 
@@ -132,17 +203,8 @@ int main(int argc, const char** argv)
 
   // Command Buffer
   // Allocate a command buffer
-  VkCommandBufferAllocateInfo cmdAllocInfo{.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                                           .commandPool        = cmdPool,
-                                           .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                                           .commandBufferCount = 1};
-  VkCommandBuffer             cmdBuffer;
-  NVVK_CHECK(vkAllocateCommandBuffers(context, &cmdAllocInfo, &cmdBuffer));
-
-  // Begin recording
-  VkCommandBufferBeginInfo beginInfo{.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                                     .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
-  NVVK_CHECK(vkBeginCommandBuffer(cmdBuffer, &beginInfo));
+  // Create and start recording a command buffer
+  VkCommandBuffer cmdBuffer = AllocateAndBeginOneTimeCommandBuffer(context, cmdPool);
 
 
 
@@ -156,7 +218,11 @@ int main(int argc, const char** argv)
   VkDescriptorSet descriptorSet = descriptorSetContainer.getSet(0);
   vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, descriptorSetContainer.getPipeLayout(), 0, 1,
       &descriptorSet, 0, nullptr);
+  
 
+
+
+  // Dispatch
   // Run the compute shader with enough workgroups to cover the entire buffer:
   vkCmdDispatch(cmdBuffer, (uint32_t(render_width) + workgroup_width - 1) / workgroup_width,
       (uint32_t(render_height) + workgroup_height - 1) / workgroup_height, 1);
@@ -186,17 +252,8 @@ int main(int argc, const char** argv)
 
 
   // Finishing operations
-  // End recording
-  NVVK_CHECK(vkEndCommandBuffer(cmdBuffer));
-
-  // Submit the command buffer
-  VkSubmitInfo submitInfo{.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,  //
-                          .commandBufferCount = 1,                              //
-                          .pCommandBuffers    = &cmdBuffer};
-  NVVK_CHECK(vkQueueSubmit(context.m_queueGCT, 1, &submitInfo, VK_NULL_HANDLE));
-
-  // Wait for the GPU to finish
-  NVVK_CHECK(vkQueueWaitIdle(context.m_queueGCT));
+  // End and submit the command buffer, then wait for it to finish:
+  EndSubmitWaitAndFreeCommandBuffer(context, context.m_queueGCT, cmdPool, cmdBuffer);
 
   // Get the image data back from the GPU
   void* data = allocator.map(buffer);
@@ -212,7 +269,6 @@ int main(int argc, const char** argv)
   vkDestroyPipeline(context, computePipeline, nullptr);
   vkDestroyShaderModule(context, rayTraceModule, nullptr);
   descriptorSetContainer.deinit();
-  vkFreeCommandBuffers(context, cmdPool, 1, &cmdBuffer);
   vkDestroyCommandPool(context, cmdPool, nullptr);
   allocator.destroy(buffer);
   allocator.deinit();
