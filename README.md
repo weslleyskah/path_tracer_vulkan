@@ -115,10 +115,9 @@ add_subdirectory(_edit) # Empty starting project
 
 # Repository
 
-```
+```bash
 path_tracer_vulkan                                                    Main directory
-
-[CMAKE]
+## CMAKE
 path_tracer_vulkan\vk_mini_path_tracer\build\vk_mini_path_tracer.sln  Solution file
 path_tracer_vulkan\vk_mini_path_tracer\_edit                          main.cpp / shader files / CMakeLists.txt
 path_tracer_vulkan\bin_x64\Debug                                      Executable (.exe) files
