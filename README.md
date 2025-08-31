@@ -1,8 +1,5 @@
 # Path Tracer
 
-<img align="center" src="vk_mini_path_tracer/depth_map.jpg">
-<center><i>Depth Map</i></center>
-
 # Overview
 
 A small, still in development, implementation of a path tracer based on the project [VK Mini Path Tracer](https://github.com/nvpro-samples/vk_mini_path_tracer) from NVIDIA's public repository, using C++, GLSL, Vulkan and NVIDIA's graphics helper libraries.
@@ -75,10 +72,27 @@ Open out.hdr on GIMP
 
 > <span style="color: gray;">**Note 2:** Study the code-base. </span>
 
-<img align="center" src="vk_mini_path_tracer/ray_intersections_barycentric_coordinates.jpg">
-<center><i>Ray Intersections</i></center>
-<p>Each point on the triangle has a unique set of barycentric coordinates. The coordinates range from 0 to 1, and so do the color channels. 
+---
+
+<img src="vk_mini_path_tracer/depth_map.jpg">
+<b><i>Depth Map</i></b>
+<p>Darker values are closer, and brighter values are further away.
+When the ray cast finishes, the rayQuery stores the closest intersection (the intersection with the lowest t-value), and t is the depth of the scene along the ray, ranging from 0 to 1. 
+
+The value <b>t</b> specifies the distance along the ray's direction vector from its origin to the point of intersection.
+
+The <b>imageData[linearIndex] = vec3(t / 10.0)</b> takes the calculated t value, scales it, and assigns it to all three color channels (Red, Green, and Blue). This creates a grayscale image where the brightness of each pixel is determined by the t value of the ray intersection.</p>
+
+---
+
+<img src="vk_mini_path_tracer/ray_intersections_barycentric_coordinates.jpg">
+<b><i>Ray Intersections</i></b>
+<p>Each point on the triangle has a unique set of barycentric coordinates with a unique intersection point between the ray and the triangle, given by the formula: <b>p = (1-u-v)*v0 + u*v1 + v*v2</b>, where v0, v1, and v2 are the vertices and (1-u-v), u, and v are the barycentric coordinates. 
+
+The coordinates of the intersection point of the ray with the triangle range from 0 to 1, and so do the color channels.
+
 This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
+
 The color at any given pixel therefore indicates exactly where on the triangle the ray hit.</p>
 
 # Repository
