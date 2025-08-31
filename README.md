@@ -1,8 +1,11 @@
-# Path Tracer with Vulkan
+# Path Tracer
 
-From the project: [vk_mini_path_tracer](https://github.com/nvpro-samples/vk_mini_path_tracer)
+<img align="center" src="vk_mini_path_tracer/depth_map.jpg">
+<i>Depth Map</i>
 
----
+# Overview
+
+A small implementation of a path tracer based on the project [VK Mini Path Tracer](https://github.com/nvpro-samples/vk_mini_path_tracer) from NVIDIA's public repository, using C++, GLSL, Vulkan and NVIDIA's graphics helper libraries.
 
 # Environment Setup
 
@@ -73,45 +76,11 @@ Open out.hdr on GIMP
 
 # Notes
 
-> <span style="color: gray;">**Important:**</span>
-Try python-cuda.
+> <span style="color: gray;">**Note 1:** Try python-cuda. </span>
 
-## CMakeLists.txt
-```bash
-# Copyright 2020-2024 NVIDIA Corporation
-# SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
-project(vk_mini_path_tracer)
+> <span style="color: gray;">**Note 2:** Study the code-base. </span>
 
-#####################################################################################
-# look for nvpro_core 1) as a sub-folder 2) at some other locations
-# this cannot be put anywhere else since we still didn't find setup.cmake yet
-#
-if(NOT BASE_DIRECTORY)
 
-  find_path(BASE_DIRECTORY
-    NAMES nvpro_core/cmake/setup.cmake
-    PATHS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR}/../.. 
-    REQUIRED
-    DOC "Directory containing nvpro_core"
-    )
-endif()
-if(EXISTS ${BASE_DIRECTORY}/nvpro_core/cmake/setup.cmake)
-  include(${BASE_DIRECTORY}/nvpro_core/cmake/setup.cmake)
-else()
-  message(FATAL_ERROR "could not find base directory, please set BASE_DIRECTORY to folder containing nvpro_core")
-endif()
-
-#####################################################################################
-# Add sample packages
-#
-_add_package_VulkanSDK()
-_add_nvpro_core_lib()
-
-#####################################################################################
-# Add chapters
-add_subdirectory(_edit) # Empty starting project
-```
 
 # Repository
 
