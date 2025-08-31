@@ -97,6 +97,12 @@ This creates a color gradient across the surface of the triangle, where each poi
 
 The color at any given pixel indicates where on the triangle the ray hit.</p>
 
+# Bibliography
+
+- [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
+- [Ray-Tracing: Rendering a Triangle](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/why-are-triangles-useful.html)
+- [Book of Shaders](https://github.com/patriciogonzalezvivo/thebookofshaders)
+
 # Repository
 
 ```bash
