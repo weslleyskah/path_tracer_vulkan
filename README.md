@@ -4,12 +4,14 @@
 
 A small, still in development, implementation of a path tracer based on the project [VK Mini Path Tracer](https://github.com/nvpro-samples/vk_mini_path_tracer) from NVIDIA's public repository, using C++, GLSL, Vulkan and NVIDIA's graphics helper libraries.
 
+This repository is purely for educational purposes with some personal notes made along the way to try to understand the basics of Computer Graphics and Vulkan, GLSL, and C++ projects. 
+
 # Environment Setup
 
-### 1. Dependencies (Vulkan Drivers, Visual Studio and CMAKE)
+### 1. Dependencies (Visual Studio, Vulkan Drivers and CMAKE)
+- [Visual Studio](https://visualstudio.microsoft.com/downloads/)
 - [Vulkan Windows SDK](https://vulkan.lunarg.com/sdk/home)
 - [Nvidia Vulkan Drivers](https://developer.nvidia.com/vulkan-driver)
-- [Visual Studio](https://visualstudio.microsoft.com/downloads/)
 - [CMAKE](https://cmake.org/download/)
 
 ### 2. Clone (Download)
@@ -93,7 +95,7 @@ The coordinates of the intersection point of the ray with the triangle range fro
 
 This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
 
-The color at any given pixel therefore indicates exactly where on the triangle the ray hit.</p>
+The color at any given pixel indicates where on the triangle the ray hit.</p>
 
 # Repository
 
