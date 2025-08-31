@@ -11,6 +11,13 @@ and an array of sets of three indices. Each set of three indices corresponds to 
 Vulkan ray tracing uses a two-level acceleration structure format. Bottom-level acceleration structures (BLASes) are acceleration structures of triangles 
 (or of bounding boxes of procedural objects), and top-level acceleration structures are acceleration structures of instances, each of which point to a BLAS, 
 include a transform (describing the position, rotation, translation, and skew of the instance using a 3 × 4 affine transformation matrix).
+
+We can determine where the ray intersected the triangle. More specifically, barycentric coordinates tell us where the intersection is, relative to the vertices of the triangle.
+scratchapixel.com - Barycentric Coordinates of a Triangle
+intersection of the ray at point p of the triangle: P = (1-u-v)*v0 + u*v1 + v*v2
+Each point on the triangle has a unique set of barycentric coordinates. The coordinates range from 0 to 1, and so do the color channels. 
+This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
+The color at any given pixel therefore indicates exactly where on the triangle the ray hit.
 */
 
 #include <nvh/fileoperations.hpp>         // For nvh::loadFile

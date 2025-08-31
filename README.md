@@ -1,7 +1,7 @@
 # Path Tracer
 
 <img align="center" src="vk_mini_path_tracer/depth_map.jpg">
-<i>Depth Map</i>
+<center><i>Depth Map</i></center>
 
 # Overview
 
@@ -75,7 +75,11 @@ Open out.hdr on GIMP
 
 > <span style="color: gray;">**Note 2:** Study the code-base. </span>
 
-
+<img align="center" src="vk_mini_path_tracer/ray_intersections_barycentric_coordinates.jpg">
+<center><i>Ray Intersections</i></center>
+<p>Each point on the triangle has a unique set of barycentric coordinates. The coordinates range from 0 to 1, and so do the color channels. 
+This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
+The color at any given pixel therefore indicates exactly where on the triangle the ray hit.</p>
 
 # Repository
 

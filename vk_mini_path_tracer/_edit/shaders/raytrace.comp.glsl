@@ -59,29 +59,43 @@ void main()
   vec3        rayDirection     = vec3(fovVerticalSlope * screenUV.x, fovVerticalSlope * screenUV.y, -1.0);
 
   // Trace the ray and see if and where it intersects the scene!
-  // First, initialize a ray query object:
-  rayQueryEXT rayQuery;
-  rayQueryInitializeEXT(rayQuery,              // Ray query
-                        tlas,                  // Top-level acceleration structure
-                        gl_RayFlagsOpaqueEXT,  // Ray flags, here saying "treat all geometry as opaque"
-                        0xFF,                  // 8-bit instance mask, here saying "trace against all instances"
-                        rayOrigin,             // Ray origin
-                        0.0,                   // Minimum t-value
-                        rayDirection,          // Ray direction
-                        10000.0);              // Maximum t-value
+// First, initialize a ray query object:
+rayQueryEXT rayQuery;
+rayQueryInitializeEXT(rayQuery,              // Ray query
+                      tlas,                  // Top-level acceleration structure
+                      gl_RayFlagsOpaqueEXT,  // Ray flags, here saying "treat all geometry as opaque"
+                      0xFF,                  // 8-bit instance mask, here saying "trace against all instances"
+                      rayOrigin,             // Ray origin
+                      0.0,                   // Minimum t-value
+                      rayDirection,          // Ray direction
+                      10000.0);              // Maximum t-value
+  
+// Start traversal, and loop over all ray-scene intersections. When this finishes,
+// rayQuery stores a "committed" intersection, the closest intersection (if any).
+while(rayQueryProceedEXT(rayQuery))
+{
+}
+  
+vec3 pixelColor;
+// Get the type of committed (true) intersection - nothing, a triangle, or
+// a generated object
+if(rayQueryGetIntersectionTypeEXT(rayQuery, true) == gl_RayQueryCommittedIntersectionTriangleEXT)
+{
+  // Ray hit a triangle
+  // Barycentric Coordinates
+  // Create a vec3(0, b.x, b.y)
+  pixelColor = vec3(0.0, rayQueryGetIntersectionBarycentricsEXT(rayQuery, true));
+  // Set the first element to 1 - b.x - b.y, setting pixelColor to
+  // (1 - b.x - b.y, b.x, b.y).
+  pixelColor.x = 1 - pixelColor.y - pixelColor.z;
+}
+else
+{
+  // Ray hit the sky
+  pixelColor = vec3(0.0, 0.0, 0.5);
+}
 
-  // Start traversal, and loop over all ray-scene intersections. When this finishes,
-  // rayQuery stores a "committed" intersection, the closest intersection (if any).
-  while(rayQueryProceedEXT(rayQuery))
-  {
-  }
-
-  // Get the t-value of the intersection (if there's no intersection, this will
-  // be tMax = 10000.0). "true" says "get the committed intersection."
-  const float t = rayQueryGetIntersectionTEXT(rayQuery, true);
-
-  // Get the index of this invocation in the buffer:
-  uint linearIndex = resolution.x * pixel.y + pixel.x;
-  // Give the pixel the color (t/10, t/10, t/10):
-  imageData[linearIndex] = vec3(t / 10.0);
+// Get the index of this invocation in the buffer:
+uint linearIndex       = resolution.x * pixel.y + pixel.x;
+imageData[linearIndex] = pixelColor;
 }
