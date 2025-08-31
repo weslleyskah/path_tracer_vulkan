@@ -7,6 +7,10 @@
 /*
 The OBJ file format represents meshes using an array of vertices (which are 3D points, but can also have some other attributes, such as a color per vertex, that we won't use), 
 and an array of sets of three indices. Each set of three indices corresponds to three vertices, which represent a triangle.
+
+Vulkan ray tracing uses a two-level acceleration structure format. Bottom-level acceleration structures (BLASes) are acceleration structures of triangles 
+(or of bounding boxes of procedural objects), and top-level acceleration structures are acceleration structures of instances, each of which point to a BLAS, 
+include a transform (describing the position, rotation, translation, and skew of the instance using a 3 × 4 affine transformation matrix).
 */
 
 #include <nvh/fileoperations.hpp>         // For nvh::loadFile
@@ -56,6 +60,17 @@ void EndSubmitWaitAndFreeCommandBuffer(VkDevice device, VkQueue queue, VkCommand
     NVVK_CHECK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
     NVVK_CHECK(vkQueueWaitIdle(queue));
     vkFreeCommandBuffers(device, cmdPool, 1, &cmdBuffer);
+}
+
+
+
+
+
+// Function that gets the device address of a VkBuffer. A device address is like the address of a piece of memory on the GPU.
+VkDeviceAddress GetBufferDeviceAddress(VkDevice device, VkBuffer buffer)
+{
+    VkBufferDeviceAddressInfo addressInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = buffer };
+    return vkGetBufferDeviceAddress(device, &addressInfo);
 }
 
 
@@ -148,33 +163,122 @@ int main(int argc, const char** argv)
 
 
 
+  
+  
+  // Upload the vertex and index buffers to the GPU.
+  nvvk::Buffer vertexBuffer, indexBuffer;
+  {
+      // Start a command buffer for uploading the buffers
+      VkCommandBuffer uploadCmdBuffer = AllocateAndBeginOneTimeCommandBuffer(context, cmdPool);
 
+      // We get these buffers' device addresses, and use them as storage buffers and build inputs.
+      const VkBufferUsageFlags usage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+          | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-  // Descriptor: Storage Descriptor Buffer
+      vertexBuffer = allocator.createBuffer(uploadCmdBuffer, objVertices, usage);
+      indexBuffer = allocator.createBuffer(uploadCmdBuffer, objIndices, usage);
+
+	  // End the command buffer, submit it, and wait for it to finish
+      EndSubmitWaitAndFreeCommandBuffer(context, context.m_queueGCT, cmdPool, uploadCmdBuffer);
+      // Free the memory of the allocator: the allocator also allocates some temporary staging memory to perform these uploads to GPU-local memory
+      allocator.finalizeAndReleaseStaging();
+  }
+
+  // Describe the bottom-level acceleration structure (BLAS)
+  std::vector<nvvk::RaytracingBuilderKHR::BlasInput> blases;
+  {
+      nvvk::RaytracingBuilderKHR::BlasInput blas;
+      // Get the device addresses of the vertex and index buffers
+      VkDeviceAddress vertexBufferAddress = GetBufferDeviceAddress(context, vertexBuffer.buffer);
+      VkDeviceAddress indexBufferAddress = GetBufferDeviceAddress(context, indexBuffer.buffer);
+      // Specify where the builder can find the vertices and indices for triangles, and their formats:
+      VkAccelerationStructureGeometryTrianglesDataKHR triangles{
+          .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
+          .vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
+          .vertexData = {.deviceAddress = vertexBufferAddress},
+          .vertexStride = 3 * sizeof(float),
+          .maxVertex = static_cast<uint32_t>(objVertices.size() / 3 - 1),
+          .indexType = VK_INDEX_TYPE_UINT32,
+          .indexData = {.deviceAddress = indexBufferAddress},
+          .transformData = {.deviceAddress = 0}  // No transform
+  };
+  
+   // Create a VkAccelerationStructureGeometryKHR object that says it handles opaque triangles and points to the above:
+   VkAccelerationStructureGeometryKHR geometry{ .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,
+                                               .geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR,
+                                               .geometry = {.triangles = triangles},
+                                               .flags = VK_GEOMETRY_OPAQUE_BIT_KHR };
+   blas.asGeometry.push_back(geometry);
+   // Create offset info that allows us to say how many triangles and vertices to read
+   VkAccelerationStructureBuildRangeInfoKHR offsetInfo{
+       .primitiveCount = static_cast<uint32_t>(objIndices.size() / 3),  // Number of triangles
+       .primitiveOffset = 0,                                             // Offset added when looking up triangles
+       .firstVertex = 0,  // Offset added when looking up vertices in the vertex buffer
+       .transformOffset = 0   // Offset added when looking up transformation matrices, if we used them
+   };
+   blas.asBuildOffsetInfo.push_back(offsetInfo);
+   blases.push_back(blas);
+  }
+  // Create the BLAS
+  nvvk::RaytracingBuilderKHR raytracingBuilder;
+  raytracingBuilder.setup(context, &allocator, context.m_queueGCT);
+  raytracingBuilder.buildBlas(blases, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+
+  // Create an instance pointing to this BLAS, and build it into a TLAS:
+  std::vector<VkAccelerationStructureInstanceKHR> instances;
+  {
+      VkAccelerationStructureInstanceKHR instance{};
+      instance.accelerationStructureReference = raytracingBuilder.getBlasDeviceAddress(0);  // The address of the BLAS in `blases` that this instance points to
+      // Set the instance transform to the identity matrix:
+      instance.transform.matrix[0][0] = instance.transform.matrix[1][1] = instance.transform.matrix[2][2] = 1.0f;
+      instance.instanceCustomIndex = 0;  // 24 bits accessible to ray shaders via rayQueryGetIntersectionInstanceCustomIndexEXT
+      // Used for a shader offset index, accessible via rayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetEXT
+      instance.instanceShaderBindingTableRecordOffset = 0;
+      instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;  // How to trace this instance
+      instance.mask = 0xFF;
+      instances.push_back(instance);
+  }
+  raytracingBuilder.buildTlas(instances, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
+
   // Here's the list of bindings for the descriptor set layout, from raytrace.comp.glsl:
   // 0 - a storage buffer (the buffer `buffer`)
-  // That's it for now!
+  // 1 - an acceleration structure (the TLAS)
+  // To trace rays from a shader, we need to add the acceleration structure to the descriptor set.
   nvvk::DescriptorSetContainer descriptorSetContainer(context);
   descriptorSetContainer.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+  descriptorSetContainer.addBinding(1, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_COMPUTE_BIT);
   // Create a layout from the list of bindings
   descriptorSetContainer.initLayout();
   // Create a descriptor pool from the list of bindings with space for 1 set, and allocate that set
   descriptorSetContainer.initPool(1);
   // Create a simple pipeline layout from the descriptor set layout:
   descriptorSetContainer.initPipeLayout();
-  // Write a single descriptor in the descriptor set.
-  VkDescriptorBufferInfo descriptorBufferInfo{ .buffer = buffer.buffer,     // The VkBuffer object
+
+  // Write values into the descriptor set.
+  // Make this descriptor in the descriptor set point to the TLAS
+  /* std::array is part of the C++ standard library. An std::array is a sized array:
+  std::array<VkWriteDescriptorSet, 2> writeDescriptorSets; is like VkWriteDescriptorSet writeDescriptorSets[2];
+  We can get the number of elements in the std::array version using writeDescriptorSets.size() */
+  std::array<VkWriteDescriptorSet, 2> writeDescriptorSets;
+  // 0
+  VkDescriptorBufferInfo descriptorBufferInfo{ .buffer = buffer.buffer,    // The VkBuffer object
                                               .range = bufferSizeBytes };  // The length of memory to bind; offset is 0.
-  VkWriteDescriptorSet writeDescriptor = descriptorSetContainer.makeWrite(0 /*set index*/, 0 /*binding*/, &descriptorBufferInfo);
-  vkUpdateDescriptorSets(context,              // The context
-      1, &writeDescriptor,  // An array of VkWriteDescriptorSet objects
-      0, nullptr);          // An array of VkCopyDescriptorSet objects (unused)
+  writeDescriptorSets[0] = descriptorSetContainer.makeWrite(0 /*set index*/, 0 /*binding*/, &descriptorBufferInfo);
+  // 1
+  VkAccelerationStructureKHR tlasCopy = raytracingBuilder.getAccelerationStructure();  // So that we can take its address
+  VkWriteDescriptorSetAccelerationStructureKHR descriptorAS{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                                                            .accelerationStructureCount = 1,
+                                                            .pAccelerationStructures = &tlasCopy };
+  writeDescriptorSets[1] = descriptorSetContainer.makeWrite(0, 1, &descriptorAS);
+  vkUpdateDescriptorSets(context,                                            // The context
+      static_cast<uint32_t>(writeDescriptorSets.size()),  // Number of VkWriteDescriptorSet objects
+      writeDescriptorSets.data(),                         // Pointer to VkWriteDescriptorSet objects
+      0, nullptr);  // An array of VkCopyDescriptorSet objects (unused)
 
 
 
 
-
-  // Shader and Pipelines
+  
   // Shader loading and pipeline creation
   VkShaderModule rayTraceModule =
       nvvk::createShaderModule(context, nvh::loadFile("shaders/raytrace.comp.glsl.spv", true, searchPaths));
@@ -269,6 +373,9 @@ int main(int argc, const char** argv)
   vkDestroyPipeline(context, computePipeline, nullptr);
   vkDestroyShaderModule(context, rayTraceModule, nullptr);
   descriptorSetContainer.deinit();
+  raytracingBuilder.destroy();
+  allocator.destroy(vertexBuffer);
+  allocator.destroy(indexBuffer);
   vkDestroyCommandPool(context, cmdPool, nullptr);
   allocator.destroy(buffer);
   allocator.deinit();
