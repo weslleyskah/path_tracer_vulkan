@@ -3,6 +3,7 @@
 <i>Path tracers trace paths of light through scenes to render images. Most path tracers today use geometric optics, which assumes that light travels along rays. </i>
 
 <img src="vk_mini_path_tracer/diffuse_reflection_lambertian.jpg">
+<i>Diffuse Reflection: Lambertian model</i>
 
 # Overview
 
@@ -106,6 +107,7 @@ The color at any given pixel indicates where on the triangle the ray hit.</p>
 - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 - [Ray-Tracing: Rendering a Triangle](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/why-are-triangles-useful.html)
 - [Book of Shaders](https://github.com/patriciogonzalezvivo/thebookofshaders)
+- [Physically Based Rendering - Diffuse Reflection](https://pbr-book.org/4ed/Reflection_Models/Diffuse_Reflection)
 
 # Repository
 
