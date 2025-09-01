@@ -72,8 +72,6 @@ See the output .../path_tracer_vulkan/bin_x64/Debug/out.hdr on GIMP
 Open out.hdr on GIMP
 ```
 
----
-
 # Notes
 
 > <span style="color: gray;">**Note 1:** Try python-cuda. </span>
