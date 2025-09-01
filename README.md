@@ -46,9 +46,10 @@ vk_mini_path_tracer_edit.sln
 ```
 
 ### 5. Run
-- Open the solution file on VS Studio and then the source files to compile and run main.cpp. 
+- Open the solution file on VS Studio to compile the project. 
 - The .exe files will be on the bin_x64 debug folder.
-- Shader files will be on vk_mini_path_tracer/_edit folder.
+- Run the .exe
+- The output of the path tracer will be on the file ```out.hdr```
 ```bash
 .../path_tracer_vulkan/vk_mini_path_tracer/build/vk_mini_path_tracer_edit.sln 
 .../path_tracer_vulkan/bin_x64/Debug/vk_mini_path_tracer__edit.exe
