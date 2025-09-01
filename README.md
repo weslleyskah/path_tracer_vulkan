@@ -47,8 +47,7 @@ vk_mini_path_tracer_edit.sln
 
 ### 5. Run
 - Open the solution file on VS Studio to compile the project. 
-- The .exe files will be on the bin_x64 debug folder.
-- Run the .exe
+- Run the .exe file inside the ```bin_x64/debug``` folder.
 - The output of the path tracer will be on the file ```out.hdr```
 ```bash
 .../path_tracer_vulkan/vk_mini_path_tracer/build/vk_mini_path_tracer_edit.sln 
