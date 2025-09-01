@@ -113,7 +113,7 @@ The color at any given pixel indicates where on the triangle the ray hit.</p>
 
 ```bash
 path_tracer_vulkan                                                    Main directory
-path_tracer_vulkan/nvpro_core                                         NVIDIA's library
+path_tracer_vulkan/nvpro_core                                         NVIDIA library
 path_tracer_vulkan/vk_mini_path_tracer                                Source code + Build
 path_tracer_vulkan/vk_mini_path_tracer/build/vk_mini_path_tracer.sln  Solution file
 path_tracer_vulkan/vk_mini_path_tracer/_edit                          Source code: main.cpp + shader
