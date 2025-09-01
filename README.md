@@ -53,6 +53,7 @@ vk_mini_path_tracer_edit.sln
 ```bash
 .../path_tracer_vulkan/vk_mini_path_tracer/build/vk_mini_path_tracer_edit.sln 
 .../path_tracer_vulkan/bin_x64/Debug/vk_mini_path_tracer__edit.exe
+.../path_tracer_vulkan/bin_x64/Debug/out.hdr
 ```
 
 ### 6. Rebuild
