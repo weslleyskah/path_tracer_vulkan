@@ -1,8 +1,12 @@
 # Path Tracer
 
+<i>Path tracers trace paths of light through scenes to render images. Most path tracers today use geometric optics, which assumes that light travels along rays. </i>
+
+<img src="vk_mini_path_tracer/diffuse_reflection_lambertian.jpg">
+
 # Overview
 
-A small, still in development, implementation of a path tracer based on the project [VK Mini Path Tracer](https://github.com/nvpro-samples/vk_mini_path_tracer) from NVIDIA's public repository, using C++, GLSL, Vulkan and NVIDIA's graphics helper libraries.
+A small implementation of a path tracer from the project [VK Mini Path Tracer](https://github.com/nvpro-samples/vk_mini_path_tracer) of NVIDIA's public repository, using C++, GLSL, Vulkan and NVIDIA's graphics helper libraries.
 
 This repository is purely for educational purposes with some personal notes made along the way to try to understand the basics of Computer Graphics and Vulkan, GLSL, and C++ projects. 
 
@@ -91,14 +95,20 @@ The <b>imageData[linearIndex] = vec3(t / 10.0)</b> takes the calculated t value,
 <b><i>Ray Intersections</i></b>
 <p>Each point on the triangle has a unique set of barycentric coordinates with a unique intersection point between the ray and the triangle, given by the formula: <b>p = (1-u-v)*v0 + u*v1 + v*v2</b>, where v0, v1, and v2 are the vertices and (1-u-v), u, and v are the barycentric coordinates. 
 
-The coordinates of the intersection point of the ray with the triangle range from 0 to 1, and so do the color channels.
-
-This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
+The coordinates of the intersection point of the ray with the triangle range from 0 to 1, and so do the color channels. This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
 
 The color at any given pixel indicates where on the triangle the ray hit.</p>
 
+---
+
+<b>Dependencies of Vulkan and NVVK objects</b>
+<img src="vk_mini_path_tracer/dependencies_vk_nvvk_objects.png">
+
+<i>Aside from nvvk::Context, but nearly every object relies on it.</i>
+
 # Bibliography
 
+- [Ray Tracing Gems](https://www.realtimerendering.com/raytracinggems/)
 - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
 - [Ray-Tracing: Rendering a Triangle](https://www.scratchapixel.com/lessons/3d-basic-rendering/ray-tracing-rendering-a-triangle/why-are-triangles-useful.html)
 - [Book of Shaders](https://github.com/patriciogonzalezvivo/thebookofshaders)

@@ -247,6 +247,12 @@ int main(int argc, const char** argv)
   }
   raytracingBuilder.buildTlas(instances, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 
+
+
+
+
+  // Descriptor Set
+  
   // Here's the list of bindings for the descriptor set layout, from raytrace.comp.glsl:
   // 0 - a storage buffer (the buffer `buffer`)
   // 1 - an acceleration structure (the TLAS)
@@ -254,6 +260,8 @@ int main(int argc, const char** argv)
   nvvk::DescriptorSetContainer descriptorSetContainer(context);
   descriptorSetContainer.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
   descriptorSetContainer.addBinding(1, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+  descriptorSetContainer.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
+  descriptorSetContainer.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT);
   // Create a layout from the list of bindings
   descriptorSetContainer.initLayout();
   // Create a descriptor pool from the list of bindings with space for 1 set, and allocate that set
@@ -262,11 +270,10 @@ int main(int argc, const char** argv)
   descriptorSetContainer.initPipeLayout();
 
   // Write values into the descriptor set.
+  
   // Make this descriptor in the descriptor set point to the TLAS
-  /* std::array is part of the C++ standard library. An std::array is a sized array:
-  std::array<VkWriteDescriptorSet, 2> writeDescriptorSets; is like VkWriteDescriptorSet writeDescriptorSets[2];
-  We can get the number of elements in the std::array version using writeDescriptorSets.size() */
-  std::array<VkWriteDescriptorSet, 2> writeDescriptorSets;
+  // Add storage buffer descriptors 2 and 3 for the vertex and index buffers: read mesh data from triangle intersections (triangle vertices)
+  std::array<VkWriteDescriptorSet, 4> writeDescriptorSets;
   // 0
   VkDescriptorBufferInfo descriptorBufferInfo{ .buffer = buffer.buffer,    // The VkBuffer object
                                               .range = bufferSizeBytes };  // The length of memory to bind; offset is 0.
@@ -277,10 +284,16 @@ int main(int argc, const char** argv)
                                                             .accelerationStructureCount = 1,
                                                             .pAccelerationStructures = &tlasCopy };
   writeDescriptorSets[1] = descriptorSetContainer.makeWrite(0, 1, &descriptorAS);
-  vkUpdateDescriptorSets(context,                                            // The context
-      static_cast<uint32_t>(writeDescriptorSets.size()),  // Number of VkWriteDescriptorSet objects
-      writeDescriptorSets.data(),                         // Pointer to VkWriteDescriptorSet objects
-      0, nullptr);  // An array of VkCopyDescriptorSet objects (unused)
+  // 2
+  VkDescriptorBufferInfo vertexDescriptorBufferInfo{ .buffer = vertexBuffer.buffer, .range = VK_WHOLE_SIZE };
+  writeDescriptorSets[2] = descriptorSetContainer.makeWrite(0, 2, &vertexDescriptorBufferInfo);
+  // 3
+  VkDescriptorBufferInfo indexDescriptorBufferInfo{ .buffer = indexBuffer.buffer, .range = VK_WHOLE_SIZE };
+  writeDescriptorSets[3] = descriptorSetContainer.makeWrite(0, 3, &indexDescriptorBufferInfo);
+  vkUpdateDescriptorSets(context,                                           // The context
+      static_cast<uint32_t>(writeDescriptorSets.size()),                    // Number of VkWriteDescriptorSet objects
+      writeDescriptorSets.data(),                                           // Pointer to VkWriteDescriptorSet objects
+      0, nullptr);                                                          // An array of VkCopyDescriptorSet objects (unused)
 
 
 
