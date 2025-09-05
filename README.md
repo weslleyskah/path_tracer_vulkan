@@ -23,7 +23,7 @@ This repository is purely for educational purposes with some personal notes made
 - Place nvpro_core inside the main directory path_tracer_vulkan of the repository
 ```bash
 ## Download the repository
-git clone https://github.com/thorgalwulf/path_tracer_vulkan.git
+git clone https://github.com/thorgalwes/path_tracer_vulkan.git
 
 ## Download NVIDIA static libraries for graphics
 git clone https://github.com/nvpro-samples/nvpro_core.git 
