@@ -23,7 +23,7 @@ This repository is purely for educational purposes with some personal notes made
 - Place nvpro_core inside the main directory path_tracer_vulkan of the repository
 ```bash
 ## Download the repository
-git clone https://github.com/thorgalwes/path_tracer_vulkan.git
+git clone https://github.com/weslleyskah/path_tracer_vulkan.git
 
 ## Download NVIDIA static libraries for graphics
 git clone https://github.com/nvpro-samples/nvpro_core.git 
@@ -79,7 +79,7 @@ Open out.hdr on GIMP
 
 > <span style="color: gray;">**Note 2:** Study the code-base. </span>
 
-## <i>Depth Map</i>
+## Depth Map
 <img src="vk_mini_path_tracer/depth_map.jpg">
 <p>Darker values are closer, and brighter values are further away.
 When the ray cast finishes, the rayQuery stores the closest intersection (the intersection with the lowest t-value), and t is the depth of the scene along the ray, ranging from 0 to 1. 
@@ -88,18 +88,12 @@ The value <b>t</b> specifies the distance along the ray's direction vector from 
 
 The <b>imageData[linearIndex] = vec3(t / 10.0)</b> takes the calculated t value, scales it, and assigns it to all three color channels (Red, Green, and Blue). This creates a grayscale image where the brightness of each pixel is determined by the t value of the ray intersection.</p>
 
-## <i>Ray Intersections</i>
+## Ray Intersections
 <img src="vk_mini_path_tracer/ray_intersections_barycentric_coordinates.jpg">
-<p>Each point on the triangle has a unique set of barycentric coordinates with a unique intersection point between the ray and the triangle, given by the formula: <b>p = (1-u-v)*v0 + u*v1 + v*v2</b>, where v0, v1, and v2 are the vertices and (1-u-v), u, and v are the barycentric coordinates. 
-
-The coordinates of the intersection point of the ray with the triangle range from 0 to 1, and so do the color channels. This creates a color gradient across the surface of the triangle, where each point's color is directly related to its position. 
-
-The color at any given pixel indicates where on the triangle the ray hit.</p>
+<p>Each point on the triangle has a unique set of barycentric coordinates with a unique intersection point between the ray and the triangle, given by the formula: <b>p = (1-u-v)*v0 + u*v1 + v*v2</b>, where v0, v1, and v2 are the vertices and (1-u-v), u, and v are the barycentric coordinates.</p>
 
 ## Dependencies of Vulkan and NVVK objects
 <img src="vk_mini_path_tracer/dependencies_vk_nvvk_objects.png">
-
-<i>Aside from nvvk::Context, but nearly every object relies on it.</i>
 
 # Bibliography
 
